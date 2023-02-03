@@ -1,94 +1,100 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 import markdown
-from markdown2 import Markdown
-from . import util 
+from . import util
 import random
-def conver_md_to_html(title):
-    content = util.get_entry(title)
-    markdowner = markdown.Markdown()
-    if content == None:
-        return None
-    else:
-        return markdowner.convert(content)
+
 
 def index(request):
     return render(request, "encyclopedia/index.html", {
         "entries": util.list_entries()
     })
 
-def entry(request,title):
-    html_content = conver_md_to_html(title)
-    if html_content == None:
-        return render(request, "encyclopedia/error.html",{
-        "message": "This entry does not exist"})
+def convert_to_HTML(entry_name):
+    md = markdown.Markdown()
+    entry  = util.get_entry(entry_name)
+    html = md.convert(entry) if entry else None
+    return html
+
+def entry(request, entry_name):
+    html = convert_to_HTML(entry_name)
+    if html is None:
+        return render(request, "encyclopedia/wrong_entry.html", {
+            "entryTitle": entry_name
+    })
     else:
-        return render(request, "encyclopedia/entry.html",{
-            "title": title,
-            "content": html_content
+        return render(request, "encyclopedia/entry.html", {
+            "entry": html,
+            "entryTitle": entry_name
         })
+
+
 def search(request):
-    if request.method == "POST":
-        entry_search = request.POST['q']
-        html_content = conver_md_to_html(entry_search)
-        if html_content is not None:
-            return render(request, "encyclopedia/entry.html",
-            {"title": entry_search,
-            "content": html_content
-            })
-        else:
-            allEntries = util.list_entries()
-            recommendation = []
-            for entry in allEntries:
-                if entry_search.lower() in entry.lower():
-                    recommendation.append(entry)
-            return render(request, "encyclopedia/search.html",
-            {"recommendation": recommendation})
 
-def new_page(request):
-    if request.method == "GET":
-        return render(request, "encyclopedia/new.html") 
-    else:
-        title = request.POST['title']
-        content = request.POST['content']
-        titleExist = util.get_entry(title)
-        if titleExist is not None:
-            return render(request, "encyclopedia/error.html", {
-                "message": "Entry page already exists"
+    if request.method == 'POST':
+
+        input = request.POST['q']
+        html = convert_to_HTML(input)
+
+        entries = util.list_entries()
+        if input in entries:
+            return render(request, "encyclopedia/entry.html", {
+                "entry": html,
+                "entryTitle": input
             })
         else:
-            util.save_entry(title,content)
-            html_content = conver_md_to_html(title)
-            return render(request, "encyclopedia/entry.html",{
-                "title":title,
-                "content": html_content
-            } )
-def edit(request):
-    if request.method =="POST":
-        title = request.POST['entry_title']
-        content = util.get_entry(title)
-        return render(request, "encyclopedia/edit.html",{
-            "title":title,
-            "content": content
-        })
+            search_pages = []
+            for entry in entries:
+                if input in entry:
+                    search_pages.append(entry)
+            return render(request, "encyclopedia/search.html", {
+                "entries": search_pages,
+            })
+
+def new(request):
+      return render(request, "encyclopedia/new.html")
+
+def save(request):
+    if request.method == 'POST':
     
-
-def save_edit(request):
-    if request.method == "POST":
-        title = request.POST['title']
-        content = request.POST['content']
-        util.save_entry(title,content)
-        html_content = conver_md_to_html(title)
-        return render(request, "encyclopedia/entry.html",{
-                "title":title,
-                "content": html_content
-            } )
+        input_title = request.POST['title']
+        input_text = request.POST['text']
+        entries = util.list_entries()
+        if input_title in entries:
+            return render(request, "encyclopedia/already_exist.html")
+        else:
+            util.save_entry(input_title, input_text)
+            html = convert_to_HTML(input_title)
+            return render(request, "encyclopedia/entry.html", {
+                "entry": html,
+                "entryTitle": input_title
+            })
 
 def rand(request):
-    allEntries = util.list_entries()
-    rand_entry = random.choice(allEntries)
-    html_content =conver_md_to_html(rand_entry)
-    return render(request, "encyclopedia/entry.html",{
-        "title": rand_entry,
-        "content": html_content
-    })
-    
+    arr = util.list_entries()
+    entry_title = random.choice(arr)
+    html = convert_to_HTML(entry_title)
+    return render(request, "encyclopedia/entry.html", {
+            "entry": html,
+            "entryTitle": entry_title
+        })
+
+            
+def edit(request):
+    if request.method == 'POST':
+        input_title = request.POST['title']
+        text = util.get_entry(input_title)
+        return render(request, "encyclopedia/edit.html", {
+            "entry": text,
+            "entryTitle": input_title
+        })
+
+def save_edit(request):
+    if request.method == 'POST':
+        input_title = request.POST['title']
+        input_text = request.POST['text']
+        util.save_entry(input_title, input_text)
+        html = convert_to_HTML(input_title)
+        return render(request, "encyclopedia/entry.html", {
+            "entry": html,
+            "entryTitle": input_title
+        })
